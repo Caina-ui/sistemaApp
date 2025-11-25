@@ -77,8 +77,7 @@ def get_recs(user_id, k=5):
         top_pop = train_data['estabelecimento_id'].value_counts().head(k).index.tolist()
         return top_pop
     
-    # Lógica de similaridade ponderada
-    # AQUI ESTAVA O ERRO ANTERIOR, AGORA ESTÁ CORRIGIDO:
+    # Lógica de similaridade ponderada (LINHA QUE ESTAVA DANDO ERRO CORRIGIDA ABAIXO)
     user_history = train_user_item.loc[user_id]
     
     estabs_comprados = user_history[user_history > 0].index.tolist()
