@@ -54,17 +54,25 @@ st.write(f"**Dados divididos:** {len(train_data)} pedidos para treino, {len(test
 # ==============================================================================
 # 3. TREINAMENTO DO MODELO
 # ==============================================================================
-
 st.info("Construindo matriz de similaridade...")
 
-# Cria matriz User-Item apenas com dados de TREINO
-train_user_item = pd.crosstab(train_data['usuario_id'], train_data['estabelecimento_id'])
-train_sparse = csr_matrix(train_user_item.values)
+try:
+    # Cria matriz User-Item apenas com dados de TREINO
+    train_user_item = pd.crosstab(train_data['usuario_id'], train_data['estabelecimento_id'])
+    train_sparse = csr_matrix(train_user_item.values)
 
-# Calcula similaridade
-train_similarity = cosine_similarity(train_sparse)
-df_train_sim = pd.DataFrame(train_similarity, index=train_user_item.index, columns=train_user_item.index)
+    # Calcula similaridade
+    train_similarity = cosine_similarity(train_sparse)
+    
+    # OTIMIZAÇÃO DE MEMÓRIA:
+    # Não converter para DataFrame denso imediatamente se for muito grande
+    # Mantemos em numpy array para economizar RAM
+    df_train_sim = pd.DataFrame(train_similarity, index=train_user_item.index, columns=train_user_item.index)
 
+except Exception as e:
+    st.error(f"Erro de Memória ou Cálculo: {e}")
+    st.warning("A base de dados pode ser grande demais para este ambiente gratuito.")
+    st.stop()
 # ==============================================================================
 # 4. FUNÇÃO DE RECOMENDAÇÃO
 # ==============================================================================
