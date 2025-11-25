@@ -12,27 +12,35 @@ st.set_page_config(page_title="Sistema de Recomendação", layout="wide")
 st.title("📊 Sistema de Recomendação de Pedidos")
 
 # ==============================================================================
-# 1. CARREGAMENTO DOS DADOS (Com Cache para performance)
+# 1. CARREGAMENTO DOS DADOS
 # ==============================================================================
-@st.cache_data # Isso faz o Streamlit não recarregar os dados a cada clique
+@st.cache_data
 def load_data():
     try:
-        # Certifique-se que os arquivos estão na mesma pasta do script
+        # Carrega CSVs menores normalmente
         df_users = pd.read_csv('base_usuarios.csv')
-        df_pedidos = pd.read_csv('base_pedidos.csv')
         df_estab = pd.read_csv('base_estabelecimentos.csv')
+        
+        # Carrega a base de pedidos em PARQUET (Mais rápido e leve)
+        # Certifique-se de que o arquivo 'base_pedidos.parquet' está na pasta
+        df_pedidos = pd.read_parquet('base_pedidos.parquet')
+        
         return df_users, df_pedidos, df_estab
-    except FileNotFoundError:
-        return None, None, None
+    except FileNotFoundError as e:
+        # Retorna o erro específico para ajudar na depuração
+        return None, None, e
 
 st.write("--- Iniciando Processamento ---")
-df_users, df_pedidos, df_estab = load_data()
+df_users, df_pedidos, df_estab_info = load_data() # mudei nome da var para evitar confusão no merge
 
+# Verificação de erro no carregamento
 if df_users is None:
-    st.error("ERRO: Não encontrei os arquivos CSV (base_usuarios.csv, etc). Verifique se estão no repositório.")
+    # Se df_estab_info contém um erro (que retornamos no except), mostramos ele
+    st.error(f"ERRO CRÍTICO: Arquivo não encontrado. Detalhes: {df_estab_info}")
+    st.warning("Dica: Verifique se você converteu 'base_pedidos.csv' para 'base_pedidos.parquet' e fez o upload.")
     st.stop()
 else:
-    st.success("Arquivos carregados com sucesso!")
+    st.success("Arquivos carregados com sucesso! (Usando Parquet para pedidos)")
 
 # ==============================================================================
 # 2. PRÉ-PROCESSAMENTO
@@ -95,7 +103,7 @@ if st.button("Executar Avaliação de Desempenho"):
         results = []
         test_users = test_data['usuario_id'].unique()
 
-        # Amostra para performance
+        # Amostra para performance (se tiver muitos usuários)
         if len(test_users) > 500:
             test_users = np.random.choice(test_users, 500, replace=False)
 
@@ -146,15 +154,21 @@ if st.button("Executar Avaliação de Desempenho"):
         ax.legend()
         ax.grid(axis='y', linestyle='--', alpha=0.5)
         
-        # IMPORTANTE: Usar st.pyplot ao invés de plt.show()
         st.pyplot(fig)
 
         # Exemplo Prático
         st.write("---")
         st.subheader("Exemplo de Recomendação")
-        exemplo_user = test_users[0]
-        recs_ids = get_recs(exemplo_user, k=3)
-        nomes_recs = df_estab[df_estab['estabelecimento_id'].isin(recs_ids)]['categoria_estabelecimento'].tolist()
+        
+        # Garante que temos usuários de teste
+        if len(test_users) > 0:
+            exemplo_user = test_users[0]
+            recs_ids = get_recs(exemplo_user, k=3)
+            
+            # Busca os nomes/categorias no dataframe de estabelecimentos
+            nomes_recs = df_estab_info[df_estab_info['estabelecimento_id'].isin(recs_ids)]['categoria_estabelecimento'].tolist()
 
-        st.write(f"Para o usuário **{exemplo_user}**...")
-        st.write(f"O modelo sugere categorias: **{nomes_recs}**")
+            st.write(f"Para o usuário **{exemplo_user}**...")
+            st.write(f"O modelo sugere categorias: **{nomes_recs}**")
+        else:
+            st.warning("Não há dados de teste suficientes para gerar um exemplo.")
